@@ -11,14 +11,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.client.RestTemplate;
 
+import com.Dao.Impl.CricketDao;
 import com.google.gson.Gson;
+import com.pojo.IplResponse;
 import com.pojo.Score;
 import com.pojo.Team;
 
 @Controller
 public class CricketController {
 
-	static String baseUrl = "http://192.168.0.9:8080";
+	CricketDao dao = new CricketDao();
+	
+	static String baseUrl = "http://192.168.0.16:8080";
 
 	@RequestMapping(value = "/showScore")
 	public String showScore(Model model) {
@@ -26,7 +30,7 @@ public class CricketController {
 
 //		Need to hit url from here
 		// Hit rest api and get score
-		final String uri = baseUrl + "/cricket-app/ipl/getScore";
+		final String uri = baseUrl + "//crick-app/ipl/getScore";
 
 		RestTemplate restTemplate = new RestTemplate();
 		String result = restTemplate.getForObject(uri, String.class);
@@ -56,20 +60,23 @@ public class CricketController {
 
 		HttpEntity<String> entity = new HttpEntity<String>(teamJson, header);
 
-		ResponseEntity<String> result = restTemplate.exchange("http://192.168.0.9:8080/cricket-app/ipl/registerForIpl",
+		ResponseEntity<String> result = restTemplate.exchange("http://192.168.0.16:8080/crick-app/ipl/registerForIpl",
 				HttpMethod.POST, entity, String.class);
-
-		/*if(result.getStatusCode().value() != 201) {
-			System.out.println("Something went wrong with reegistration");
-			model.addAttribute("message", "Something went wrong with registration process");
-			return "Home";
-		}*/
+		System.out.println("Response is : " + result.getBody());
 		
-		Team resultTeam = gson.fromJson(result.getBody(), Team.class);
-		if(resultTeam.getStatus().equals("Accepted")) {
-			model.addAttribute("message", "you are in for ipl!!");
+		IplResponse iplResponse = gson.fromJson(result.getBody(), IplResponse.class);
+		
+		if(iplResponse.getErrorCode().equals("000")) {
+			String responseData = iplResponse.getResponseData();
+			Team responseTeam = gson.fromJson(responseData, Team.class);
+			if(responseTeam.getStatus().equals("Accepted")) {
+				dao.registerTeam(responseTeam);
+				model.addAttribute("message", "you are in for ipl!!");
+			} else {
+				model.addAttribute("message", "You are not qualified!! Try next time!!");
+			}
 		} else {
-			model.addAttribute("message", "You are not qualified!! Try next time!!");
+			model.addAttribute("message", iplResponse.getErrorMessage());
 		}
 		
 		return "Home";
